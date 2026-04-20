@@ -1,0 +1,107 @@
+.wrapper {
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 8px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error {
+  align-self: stretch;
+}
+
+.box {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  padding: 8px;
+  background-color: var(--color-bg-elevated);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  transition: border-color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.box:focus-within {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(16, 163, 127, 0.15);
+}
+
+.textarea {
+  flex: 1;
+  min-height: 36px;
+  max-height: 140px;
+  resize: none;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  line-height: 1.5;
+  padding: 6px 4px;
+  color: var(--color-text);
+}
+
+.textarea::placeholder {
+  color: var(--color-text-muted);
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast),
+    color var(--transition-fast), opacity var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.iconBtn:hover:not(:disabled) {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.iconBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.send {
+  color: var(--color-text-muted);
+}
+
+.sendActive {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+}
+.sendActive:hover:not(:disabled) {
+  background-color: var(--color-primary-hover);
+  color: var(--color-primary-text);
+}
+
+.stop {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text);
+}
+.stop:hover:not(:disabled) {
+  background-color: var(--color-border-strong);
+}
+
+.hint {
+  font-size: 11px;
+  color: var(--color-text-muted);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .wrapper {
+    padding: 6px 12px 12px;
+  }
+  .hint {
+    display: none;
+  }
+}
