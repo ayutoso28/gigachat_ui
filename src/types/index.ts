@@ -1,17 +1,11 @@
-export type Role = "user" | "assistant";
-
-export interface ChatMessage {
-  id: string;
-  role: Role;
-  content: string;
-  createdAt: string;
-}
+export type { Message, Role } from "./message";
+import type { Message } from "./message";
 
 export interface Chat {
   id: string;
   title: string;
   lastMessageAt: string;
-  messages: ChatMessage[];
+  messages: Message[];
 }
 
 export type GigaChatModel =
@@ -40,3 +34,27 @@ export interface AuthState {
   credentials: string;
   scope: Scope;
 }
+
+export interface ChatState {
+  chats: Chat[];
+  activeChatId: string | null;
+  loadingByChat: Record<string, boolean>;
+  errorByChat: Record<string, string | null>;
+}
+
+export type ChatAction =
+  | { type: "CREATE_CHAT"; payload: Chat }
+  | { type: "SELECT_CHAT"; payload: string | null }
+  | { type: "RENAME_CHAT"; payload: { id: string; title: string } }
+  | { type: "DELETE_CHAT"; payload: string }
+  | { type: "APPEND_MESSAGE"; payload: { chatId: string; message: Message } }
+  | {
+      type: "UPDATE_MESSAGE";
+      payload: { chatId: string; messageId: string; content: string };
+    }
+  | { type: "REMOVE_MESSAGE"; payload: { chatId: string; messageId: string } }
+  | { type: "SET_LOADING"; payload: { chatId: string; isLoading: boolean } }
+  | {
+      type: "SET_ERROR";
+      payload: { chatId: string; error: string | null };
+    };

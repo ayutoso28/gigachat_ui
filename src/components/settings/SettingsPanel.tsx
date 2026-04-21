@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { GigaChatModel, Settings } from "../../types";
+import type { GigaChatModel, Settings, Theme } from "../../types";
 import { Button } from "../ui/Button";
 import { Slider } from "../ui/Slider";
 import { Toggle } from "../ui/Toggle";
@@ -12,6 +12,7 @@ interface SettingsPanelProps {
   onClose: () => void;
   onSave: (settings: Settings) => void;
   onReset: () => Settings;
+  onThemeChange: (theme: Theme) => void;
 }
 
 const MODEL_OPTIONS: GigaChatModel[] = [
@@ -27,6 +28,7 @@ export function SettingsPanel({
   onClose,
   onSave,
   onReset,
+  onThemeChange,
 }: SettingsPanelProps) {
   const [draft, setDraft] = useState<Settings>(settings);
 
@@ -50,6 +52,13 @@ export function SettingsPanel({
   const handleReset = () => {
     const defaults = onReset();
     setDraft(defaults);
+    onThemeChange(defaults.theme);
+  };
+
+  const handleThemeToggle = (isDark: boolean) => {
+    const nextTheme: Theme = isDark ? "dark" : "light";
+    update("theme", nextTheme);
+    onThemeChange(nextTheme);
   };
 
   const handleSave = () => {
@@ -163,12 +172,14 @@ export function SettingsPanel({
             <div className={styles.themeRow}>
               <div className={styles.themeLabel}>
                 {draft.theme === "dark" ? <MoonIcon /> : <SunIcon />}
-                <span>Тёмная тема</span>
+                <span>
+                  {draft.theme === "dark" ? "Тёмная тема" : "Светлая тема"}
+                </span>
               </div>
               <Toggle
                 id="theme-toggle"
                 checked={draft.theme === "dark"}
-                onChange={(v) => update("theme", v ? "dark" : "light")}
+                onChange={handleThemeToggle}
               />
             </div>
           </section>

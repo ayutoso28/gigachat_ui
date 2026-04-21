@@ -7,7 +7,7 @@ import styles from "./InputArea.module.css";
 interface InputAreaProps {
   onSend: (text: string) => void;
   onStop?: () => void;
-  isGenerating?: boolean;
+  isLoading?: boolean;
   error?: string | null;
 }
 
@@ -16,7 +16,7 @@ const MAX_ROWS = 5;
 export function InputArea({
   onSend,
   onStop,
-  isGenerating = false,
+  isLoading = false,
   error,
 }: InputAreaProps) {
   const [value, setValue] = useState("");
@@ -32,7 +32,7 @@ export function InputArea({
   }, [value]);
 
   const trimmed = value.trim();
-  const canSend = trimmed.length > 0 && !isGenerating;
+  const canSend = trimmed.length > 0 && !isLoading;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -56,7 +56,7 @@ export function InputArea({
           className={styles.iconBtn}
           aria-label="Прикрепить изображение"
           title="Прикрепить изображение"
-          disabled={isGenerating}
+          disabled={isLoading}
         >
           <PaperclipIcon />
         </button>
@@ -64,15 +64,18 @@ export function InputArea({
         <textarea
           ref={textareaRef}
           className={styles.textarea}
-          placeholder="Напишите сообщение..."
+          placeholder={
+            isLoading ? "GigaChat печатает..." : "Напишите сообщение..."
+          }
           rows={1}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
+          disabled={isLoading}
           aria-label="Сообщение"
         />
 
-        {isGenerating ? (
+        {isLoading ? (
           <button
             type="button"
             className={`${styles.iconBtn} ${styles.stop}`}

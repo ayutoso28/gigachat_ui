@@ -63,6 +63,16 @@
   opacity: 1;
 }
 
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+  .actionBtn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
 .actionBtn {
   width: 26px;
   height: 26px;

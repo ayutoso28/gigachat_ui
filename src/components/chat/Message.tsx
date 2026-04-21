@@ -2,7 +2,7 @@ import { useState } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { CheckIcon, CopyIcon } from "../ui/icons";
-import type { ChatMessage } from "../../types";
+import type { Message as ChatMessage } from "../../types";
 import styles from "./Message.module.css";
 
 interface MessageProps {
@@ -18,7 +18,7 @@ export function Message({ message, variant }: MessageProps) {
     try {
       await navigator.clipboard.writeText(message.content);
       setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => setCopied(false), 2000);
     } catch {
       setCopied(false);
     }
@@ -53,21 +53,28 @@ export function Message({ message, variant }: MessageProps) {
               {message.content}
             </ReactMarkdown>
           </div>
-
-          <button
-            type="button"
-            className={styles.copyBtn}
-            onClick={handleCopy}
-            aria-label="Скопировать сообщение"
-            title={copied ? "Скопировано" : "Копировать"}
-          >
-            {copied ? (
-              <CheckIcon width={14} height={14} />
-            ) : (
-              <CopyIcon width={14} height={14} />
-            )}
-          </button>
         </div>
+
+        {!isUser && (
+          <div className={styles.actions}>
+            <button
+              type="button"
+              className={styles.copyBtn}
+              onClick={handleCopy}
+              aria-label="Скопировать сообщение"
+              title={copied ? "Скопировано" : "Копировать"}
+            >
+              {copied ? (
+                <CheckIcon width={14} height={14} />
+              ) : (
+                <CopyIcon width={14} height={14} />
+              )}
+              <span className={styles.copyLabel}>
+                {copied ? "Скопировано" : "Копировать"}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

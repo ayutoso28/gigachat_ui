@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { AuthState, Scope } from "../../types";
+import { validateCredentials } from "../../api/auth";
 import { Button } from "../ui/Button";
 import { ErrorMessage } from "../ui/ErrorMessage";
 import { SparkleIcon } from "../ui/icons";
@@ -31,15 +32,27 @@ export function AuthForm({ onSubmit }: AuthFormProps) {
   const [credentials, setCredentials] = useState("");
   const [scope, setScope] = useState<Scope>("GIGACHAT_API_PERS");
   const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!credentials.trim()) {
       setError("Введите Authorization Key, чтобы продолжить.");
       return;
     }
+    const auth: AuthState = { credentials: credentials.trim(), scope };
     setError(null);
-    onSubmit({ credentials: credentials.trim(), scope });
+    setIsSubmitting(true);
+    try {
+      await validateCredentials(auth);
+      onSubmit(auth);
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Не удалось проверить ключ.";
+      setError(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -111,13 +124,19 @@ export function AuthForm({ onSubmit }: AuthFormProps) {
           </div>
         )}
 
-        <Button type="submit" variant="primary" size="lg" fullWidth>
-          Войти
+        <Button
+          type="submit"
+          variant="primary"
+          size="lg"
+          fullWidth
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Проверяем ключ…" : "Войти"}
         </Button>
 
         <p className={styles.note}>
-          Ключ используется только локально — запросов к API на этом этапе не
-          выполняется.
+          Ключ используется только для получения токена доступа и хранится в
+          памяти вкладки.
         </p>
       </form>
     </div>

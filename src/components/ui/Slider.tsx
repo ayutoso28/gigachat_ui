@@ -20,7 +20,6 @@ export function Slider({
   formatValue,
 }: SliderProps) {
   const displayValue = formatValue ? formatValue(value) : String(value);
-  const percent = ((value - min) / (max - min)) * 100;
 
   return (
     <div className={styles.wrapper}>
@@ -36,7 +35,6 @@ export function Slider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        style={{ ["--percent" as string]: `${percent}%` }}
       />
     </div>
   );

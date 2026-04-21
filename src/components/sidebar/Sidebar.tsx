@@ -1,86 +1,158 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import type { Chat } from "../../types";
+import { useChat, DEFAULT_CHAT_TITLE } from "../../app/providers/ChatProvider";
 import { Button } from "../ui/Button";
+import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { CloseIcon, PlusIcon, SparkleIcon } from "../ui/icons";
 import { SearchInput } from "./SearchInput";
 import { ChatList } from "./ChatList";
 import styles from "./Sidebar.module.css";
 
 interface SidebarProps {
-  chats: Chat[];
-  activeChatId: string | null;
-  searchQuery: string;
-  onSearchChange: (value: string) => void;
-  onNewChat: () => void;
-  onSelectChat: (id: string) => void;
-  onEditChat: (id: string) => void;
-  onDeleteChat: (id: string) => void;
   onCloseMobile?: () => void;
   isMobileOpen?: boolean;
 }
 
-export function Sidebar({
-  chats,
-  activeChatId,
-  searchQuery,
-  onSearchChange,
-  onNewChat,
-  onSelectChat,
-  onEditChat,
-  onDeleteChat,
-  onCloseMobile,
-  isMobileOpen,
-}: SidebarProps) {
+function uid(prefix: string) {
+  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function matchesQuery(chat: Chat, q: string): boolean {
+  if (chat.title.toLowerCase().includes(q)) return true;
+  for (let i = chat.messages.length - 1; i >= 0; i--) {
+    if (chat.messages[i].content.toLowerCase().includes(q)) return true;
+  }
+  return false;
+}
+
+export function Sidebar({ onCloseMobile, isMobileOpen }: SidebarProps) {
+  const { state, dispatch } = useChat();
+  const navigate = useNavigate();
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+
   const filteredChats = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    if (!q) return chats;
-    return chats.filter((c) => c.title.toLowerCase().includes(q));
-  }, [chats, searchQuery]);
+    if (!q) return state.chats;
+    return state.chats.filter((c) => matchesQuery(c, q));
+  }, [state.chats, searchQuery]);
+
+  const handleSelect = (id: string) => {
+    navigate(`/chat/${id}`);
+    onCloseMobile?.();
+  };
+
+  const handleNewChat = () => {
+    const now = new Date().toISOString();
+    const newChat: Chat = {
+      id: uid("chat"),
+      title: DEFAULT_CHAT_TITLE,
+      lastMessageAt: now,
+      messages: [],
+    };
+    dispatch({ type: "CREATE_CHAT", payload: newChat });
+    navigate(`/chat/${newChat.id}`);
+    onCloseMobile?.();
+  };
+
+  const handleRename = (id: string) => {
+    const chat = state.chats.find((c) => c.id === id);
+    if (!chat) return;
+    const nextTitle = window.prompt("Новое название чата", chat.title);
+    if (nextTitle === null) return;
+    dispatch({
+      type: "RENAME_CHAT",
+      payload: { id, title: nextTitle.trim() },
+    });
+  };
+
+  const handleDeleteRequest = (id: string) => {
+    setPendingDeleteId(id);
+  };
+
+  const handleDeleteConfirm = () => {
+    if (!pendingDeleteId) return;
+    const wasActive = state.activeChatId === pendingDeleteId;
+    const remaining = state.chats.filter((c) => c.id !== pendingDeleteId);
+    dispatch({ type: "DELETE_CHAT", payload: pendingDeleteId });
+    setPendingDeleteId(null);
+    if (wasActive) {
+      navigate(remaining.length > 0 ? `/chat/${remaining[0].id}` : "/");
+    }
+  };
+
+  const pendingChat =
+    pendingDeleteId !== null
+      ? state.chats.find((c) => c.id === pendingDeleteId) ?? null
+      : null;
 
   return (
-    <aside
-      className={`${styles.sidebar} ${isMobileOpen ? styles.mobileOpen : ""}`}
-      aria-label="Боковая панель чатов"
-    >
-      <div className={styles.header}>
-        <div className={styles.logo}>
-          <SparkleIcon width={20} height={20} />
-          <span>GigaChat</span>
+    <>
+      <aside
+        className={`${styles.sidebar} ${isMobileOpen ? styles.mobileOpen : ""}`}
+        aria-label="Боковая панель чатов"
+      >
+        <div className={styles.header}>
+          <div className={styles.logo}>
+            <SparkleIcon width={20} height={20} />
+            <span>GigaChat</span>
+          </div>
+          {onCloseMobile && (
+            <button
+              type="button"
+              className={styles.closeBtn}
+              onClick={onCloseMobile}
+              aria-label="Закрыть боковую панель"
+            >
+              <CloseIcon />
+            </button>
+          )}
         </div>
-        {onCloseMobile && (
-          <button
-            type="button"
-            className={styles.closeBtn}
-            onClick={onCloseMobile}
-            aria-label="Закрыть боковую панель"
+
+        <div className={styles.newChatRow}>
+          <Button
+            variant="secondary"
+            fullWidth
+            icon={<PlusIcon width={16} height={16} />}
+            onClick={handleNewChat}
           >
-            <CloseIcon />
-          </button>
-        )}
-      </div>
+            Новый чат
+          </Button>
+        </div>
 
-      <div className={styles.newChatRow}>
-        <Button
-          variant="secondary"
-          fullWidth
-          icon={<PlusIcon width={16} height={16} />}
-          onClick={onNewChat}
-        >
-          Новый чат
-        </Button>
-      </div>
+        <div className={styles.searchRow}>
+          <SearchInput value={searchQuery} onChange={setSearchQuery} />
+        </div>
 
-      <div className={styles.searchRow}>
-        <SearchInput value={searchQuery} onChange={onSearchChange} />
-      </div>
+        <ChatList
+          chats={filteredChats}
+          activeChatId={state.activeChatId}
+          emptyMessage={
+            state.chats.length === 0
+              ? "Пока нет чатов. Создайте новый."
+              : "Ничего не найдено"
+          }
+          onSelect={handleSelect}
+          onEdit={handleRename}
+          onDelete={handleDeleteRequest}
+        />
+      </aside>
 
-      <ChatList
-        chats={filteredChats}
-        activeChatId={activeChatId}
-        onSelect={onSelectChat}
-        onEdit={onEditChat}
-        onDelete={onDeleteChat}
+      <ConfirmDialog
+        isOpen={pendingChat !== null}
+        title="Удалить чат?"
+        message={
+          pendingChat
+            ? `Чат «${pendingChat.title}» и все сообщения будут удалены без возможности восстановления.`
+            : undefined
+        }
+        confirmLabel="Удалить"
+        cancelLabel="Отмена"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setPendingDeleteId(null)}
       />
-    </aside>
+    </>
   );
 }
