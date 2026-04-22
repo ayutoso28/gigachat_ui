@@ -1,4 +1,4 @@
-import { proxyRequest } from "../_proxy";
+import { proxyRequest } from "../_proxy.js";
 
 export const config = { runtime: "nodejs" };
 
