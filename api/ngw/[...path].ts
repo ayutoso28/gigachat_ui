@@ -1,4 +1,10 @@
-export const config = { runtime: "edge" };
+process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+import type { IncomingMessage, ServerResponse } from "node:http";
+import { Readable } from "node:stream";
+import type { ReadableStream as WebReadableStream } from "node:stream/web";
+
+export const config = { runtime: "nodejs" };
 
 const UPSTREAM = "https://ngw.devices.sberbank.ru:9443";
 const PREFIX = "/api/ngw";
@@ -26,47 +32,68 @@ const DROP_RES_HEADERS = new Set([
   "connection",
 ]);
 
-export default async function handler(request: Request): Promise<Response> {
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+) {
   try {
-    const incomingUrl = new URL(request.url);
-    const rest = incomingUrl.pathname.startsWith(PREFIX)
-      ? incomingUrl.pathname.slice(PREFIX.length)
-      : incomingUrl.pathname;
-    const targetUrl = `${UPSTREAM}${rest}${incomingUrl.search}`;
+    const incomingPath = req.url || "/";
+    const qIdx = incomingPath.indexOf("?");
+    const pathname = qIdx === -1 ? incomingPath : incomingPath.slice(0, qIdx);
+    const search = qIdx === -1 ? "" : incomingPath.slice(qIdx);
+    const rest = pathname.startsWith(PREFIX)
+      ? pathname.slice(PREFIX.length)
+      : pathname;
+    const targetUrl = `${UPSTREAM}${rest}${search}`;
 
-    const forwardHeaders = new Headers();
-    request.headers.forEach((value, key) => {
-      if (!DROP_REQ_HEADERS.has(key.toLowerCase())) {
-        forwardHeaders.set(key, value);
+    const forwardHeaders: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value === undefined) continue;
+      if (DROP_REQ_HEADERS.has(key.toLowerCase())) continue;
+      forwardHeaders[key] = Array.isArray(value) ? value.join(", ") : value;
+    }
+
+    const method = req.method || "GET";
+    const hasBody = method !== "GET" && method !== "HEAD";
+
+    let body: Buffer | undefined;
+    if (hasBody) {
+      const chunks: Buffer[] = [];
+      for await (const chunk of req) {
+        chunks.push(chunk as Buffer);
       }
-    });
-
-    const hasBody = request.method !== "GET" && request.method !== "HEAD";
+      body = Buffer.concat(chunks);
+    }
 
     const upstream = await fetch(targetUrl, {
-      method: request.method,
+      method,
       headers: forwardHeaders,
-      body: hasBody ? await request.arrayBuffer() : undefined,
-      redirect: "manual",
+      body,
     });
 
-    const responseHeaders = new Headers();
+    res.statusCode = upstream.status;
     upstream.headers.forEach((value, key) => {
       if (!DROP_RES_HEADERS.has(key.toLowerCase())) {
-        responseHeaders.set(key, value);
+        res.setHeader(key, value);
       }
     });
 
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: responseHeaders,
-    });
+    if (upstream.body) {
+      Readable.fromWeb(upstream.body as WebReadableStream).pipe(res);
+    } else {
+      res.end();
+    }
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    return new Response(
-      JSON.stringify({ error: "proxy_failed", detail: message }),
-      { status: 502, headers: { "content-type": "application/json" } },
+    const name = err instanceof Error ? err.name : "Error";
+    const cause =
+      err instanceof Error && "cause" in err
+        ? String((err as { cause?: unknown }).cause)
+        : undefined;
+    res.statusCode = 502;
+    res.setHeader("content-type", "application/json");
+    res.end(
+      JSON.stringify({ error: "proxy_failed", name, detail: message, cause }),
     );
   }
 }
