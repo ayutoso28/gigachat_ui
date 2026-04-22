@@ -6,8 +6,7 @@ import type { ReadableStream as WebReadableStream } from "node:stream/web";
 
 export const config = { runtime: "nodejs" };
 
-const UPSTREAM = "https://ngw.devices.sberbank.ru:9443";
-const PREFIX = "/api/ngw";
+const UPSTREAM = "https://gigachat.devices.sberbank.ru";
 
 const DROP_REQ_HEADERS = new Set([
   "host",
@@ -37,14 +36,9 @@ export default async function handler(
   res: ServerResponse,
 ) {
   try {
-    const incomingPath = req.url || "/";
-    const qIdx = incomingPath.indexOf("?");
-    const pathname = qIdx === -1 ? incomingPath : incomingPath.slice(0, qIdx);
-    const search = qIdx === -1 ? "" : incomingPath.slice(qIdx);
-    const rest = pathname.startsWith(PREFIX)
-      ? pathname.slice(PREFIX.length)
-      : pathname;
-    const targetUrl = `${UPSTREAM}/api${rest}${search}`;
+    const incoming = new URL(req.url || "/", "http://x");
+    const upstreamPath = incoming.searchParams.get("path") || "/";
+    const targetUrl = `${UPSTREAM}/api${upstreamPath}`;
 
     const forwardHeaders: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {

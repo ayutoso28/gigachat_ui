@@ -1,7 +1,12 @@
 import type { AuthState, Message } from "../types";
 import { clearTokenCache, getValidAccessToken } from "./auth";
 
-const API_URL = import.meta.env.VITE_GIGACHAT_API_URL ?? "/api/giga/v1";
+const API_BASE = import.meta.env.VITE_GIGACHAT_API_URL ?? "/api/giga";
+const API_VERSION = "/v1";
+
+function gigaUrl(path: string): string {
+  return `${API_BASE}?path=${encodeURIComponent(`${API_VERSION}${path}`)}`;
+}
 
 export interface ChatCompletionMessage {
   role: "system" | "user" | "assistant";
@@ -119,7 +124,7 @@ async function performRequest(
   signal: AbortSignal | undefined,
   onChunk: ((accumulated: string) => void) | undefined,
 ): Promise<string> {
-  const response = await fetch(`${API_URL}/chat/completions`, {
+  const response = await fetch(gigaUrl("/chat/completions"), {
     method: "POST",
     headers: buildHeaders(accessToken),
     body: buildBody(request),
