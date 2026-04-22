@@ -1,6 +1,7 @@
 import type { AuthState, Scope } from "../types";
 
-const AUTH_URL = import.meta.env.VITE_GIGACHAT_AUTH_URL ?? "/ngw/api/v2/oauth";
+const AUTH_URL =
+  import.meta.env.VITE_GIGACHAT_AUTH_URL ?? "/api/ngw/api/v2/oauth";
 
 const REFRESH_BUFFER_MS = 60_000;
 
