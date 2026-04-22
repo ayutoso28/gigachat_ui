@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { EditIcon, TrashIcon } from "../ui/icons";
 import type { Chat } from "../../types";
 import styles from "./ChatItem.module.css";
@@ -27,7 +28,7 @@ function formatDate(iso: string): string {
   return date.toLocaleDateString("ru-RU", { day: "2-digit", month: "short" });
 }
 
-export function ChatItem({
+function ChatItemImpl({
   chat,
   isActive,
   onSelect,
@@ -82,3 +83,5 @@ export function ChatItem({
     </div>
   );
 }
+
+export const ChatItem = memo(ChatItemImpl);

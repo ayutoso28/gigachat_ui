@@ -1,15 +1,14 @@
-import { useEffect, useRef } from "react";
-import type { AuthState, Message, Settings } from "../../types";
+import { useNavigate } from "react-router-dom";
+import type { AuthState, Chat, Message, Settings } from "../../types";
 import {
   buildMessageHistory,
   createChatCompletion,
 } from "../../api/gigachat";
-import {
-  DEFAULT_CHAT_TITLE,
-  useChat,
-} from "../../app/providers/ChatProvider";
+import { useChat } from "../../app/providers/ChatProvider";
+import { DEFAULT_CHAT_TITLE } from "../../store/chatReducer";
 import { MenuIcon, SettingsIcon } from "../ui/icons";
 import { EmptyState } from "../ui/EmptyState";
+import { ErrorBoundary } from "../ErrorBoundary";
 import { InputArea } from "./InputArea";
 import { MessageList } from "./MessageList";
 import styles from "./ChatWindow.module.css";
@@ -22,6 +21,8 @@ interface ChatWindowProps {
 }
 
 const TITLE_MAX_LENGTH = 40;
+
+const inFlightControllers = new Map<string, AbortController>();
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
@@ -40,6 +41,7 @@ export function ChatWindow({
   onOpenSidebar,
 }: ChatWindowProps) {
   const { state, dispatch } = useChat();
+  const navigate = useNavigate();
   const activeChat =
     state.chats.find((c) => c.id === state.activeChatId) ?? null;
   const chatId = activeChat?.id ?? null;
@@ -47,21 +49,34 @@ export function ChatWindow({
   const isLoading = chatId ? !!state.loadingByChat[chatId] : false;
   const error = chatId ? state.errorByChat[chatId] ?? null : null;
 
-  const controllersRef = useRef(new Map<string, AbortController>());
-
-  useEffect(() => {
-    const controllers = controllersRef.current;
-    return () => {
-      for (const c of controllers.values()) c.abort();
-      controllers.clear();
-    };
-  }, []);
-
   const handleSend = async (text: string) => {
-    if (!activeChat || !chatId || isLoading) return;
+    if (isLoading) return;
 
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    let targetId: string;
+    let prevMessages: Message[];
+    let hasDefaultTitle: boolean;
+
+    if (activeChat && chatId) {
+      targetId = chatId;
+      prevMessages = activeChat.messages;
+      hasDefaultTitle = activeChat.title === DEFAULT_CHAT_TITLE;
+    } else {
+      const now = new Date().toISOString();
+      const newChat: Chat = {
+        id: uid("chat"),
+        title: DEFAULT_CHAT_TITLE,
+        lastMessageAt: now,
+        messages: [],
+      };
+      dispatch({ type: "CREATE_CHAT", payload: newChat });
+      navigate(`/chat/${newChat.id}`);
+      targetId = newChat.id;
+      prevMessages = [];
+      hasDefaultTitle = true;
+    }
 
     const userMessage: Message = {
       id: uid("m"),
@@ -70,7 +85,6 @@ export function ChatWindow({
       timestamp: new Date().toISOString(),
     };
 
-    const prevMessages = activeChat.messages;
     const history = buildMessageHistory(settings.systemPrompt, [
       ...prevMessages,
       userMessage,
@@ -78,27 +92,30 @@ export function ChatWindow({
 
     dispatch({
       type: "APPEND_MESSAGE",
-      payload: { chatId, message: userMessage },
+      payload: { chatId: targetId, message: userMessage },
     });
 
-    if (
-      prevMessages.length === 0 &&
-      activeChat.title === DEFAULT_CHAT_TITLE
-    ) {
+    if (prevMessages.length === 0 && hasDefaultTitle) {
       dispatch({
         type: "RENAME_CHAT",
-        payload: { id: chatId, title: deriveTitle(trimmed) },
+        payload: { id: targetId, title: deriveTitle(trimmed) },
       });
     }
 
-    dispatch({ type: "SET_ERROR", payload: { chatId, error: null } });
-    dispatch({ type: "SET_LOADING", payload: { chatId, isLoading: true } });
+    dispatch({
+      type: "SET_ERROR",
+      payload: { chatId: targetId, error: null },
+    });
+    dispatch({
+      type: "SET_LOADING",
+      payload: { chatId: targetId, isLoading: true },
+    });
 
     const assistantId = uid("m");
     let appended = false;
 
     const controller = new AbortController();
-    controllersRef.current.set(chatId, controller);
+    inFlightControllers.set(targetId, controller);
 
     try {
       await createChatCompletion(
@@ -118,7 +135,7 @@ export function ChatWindow({
               dispatch({
                 type: "APPEND_MESSAGE",
                 payload: {
-                  chatId,
+                  chatId: targetId,
                   message: {
                     id: assistantId,
                     role: "assistant",
@@ -132,7 +149,7 @@ export function ChatWindow({
               dispatch({
                 type: "UPDATE_MESSAGE",
                 payload: {
-                  chatId,
+                  chatId: targetId,
                   messageId: assistantId,
                   content: accumulated,
                 },
@@ -148,25 +165,28 @@ export function ChatWindow({
         if (appended) {
           dispatch({
             type: "REMOVE_MESSAGE",
-            payload: { chatId, messageId: assistantId },
+            payload: { chatId: targetId, messageId: assistantId },
           });
         }
         const message =
           err instanceof Error ? err.message : "Не удалось получить ответ";
-        dispatch({ type: "SET_ERROR", payload: { chatId, error: message } });
+        dispatch({
+          type: "SET_ERROR",
+          payload: { chatId: targetId, error: message },
+        });
       }
     } finally {
-      controllersRef.current.delete(chatId);
+      inFlightControllers.delete(targetId);
       dispatch({
         type: "SET_LOADING",
-        payload: { chatId, isLoading: false },
+        payload: { chatId: targetId, isLoading: false },
       });
     }
   };
 
   const handleStop = () => {
     if (!chatId) return;
-    controllersRef.current.get(chatId)?.abort();
+    inFlightControllers.get(chatId)?.abort();
   };
 
   return (
@@ -199,10 +219,12 @@ export function ChatWindow({
       </header>
 
       {activeChat ? (
-        <MessageList
-          messages={activeChat.messages}
-          isLoading={isLoading}
-        />
+        <ErrorBoundary>
+          <MessageList
+            messages={activeChat.messages}
+            isLoading={isLoading}
+          />
+        </ErrorBoundary>
       ) : (
         <div className={styles.emptyWrap}>
           <EmptyState />

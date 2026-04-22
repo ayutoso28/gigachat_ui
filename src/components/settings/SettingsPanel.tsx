@@ -33,10 +33,6 @@ export function SettingsPanel({
   const [draft, setDraft] = useState<Settings>(settings);
 
   useEffect(() => {
-    if (isOpen) setDraft(settings);
-  }, [isOpen, settings]);
-
-  useEffect(() => {
     if (!isOpen) return;
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();

@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { Chat } from "../../types";
-import { useChat, DEFAULT_CHAT_TITLE } from "../../app/providers/ChatProvider";
+import { useChat } from "../../app/providers/ChatProvider";
+import { DEFAULT_CHAT_TITLE } from "../../store/chatReducer";
 import { Button } from "../ui/Button";
 import { ConfirmDialog } from "../ui/ConfirmDialog";
 import { CloseIcon, PlusIcon, SparkleIcon } from "../ui/icons";
@@ -39,12 +40,15 @@ export function Sidebar({ onCloseMobile, isMobileOpen }: SidebarProps) {
     return state.chats.filter((c) => matchesQuery(c, q));
   }, [state.chats, searchQuery]);
 
-  const handleSelect = (id: string) => {
-    navigate(`/chat/${id}`);
-    onCloseMobile?.();
-  };
+  const handleSelect = useCallback(
+    (id: string) => {
+      navigate(`/chat/${id}`);
+      onCloseMobile?.();
+    },
+    [navigate, onCloseMobile],
+  );
 
-  const handleNewChat = () => {
+  const handleNewChat = useCallback(() => {
     const now = new Date().toISOString();
     const newChat: Chat = {
       id: uid("chat"),
@@ -55,24 +59,27 @@ export function Sidebar({ onCloseMobile, isMobileOpen }: SidebarProps) {
     dispatch({ type: "CREATE_CHAT", payload: newChat });
     navigate(`/chat/${newChat.id}`);
     onCloseMobile?.();
-  };
+  }, [dispatch, navigate, onCloseMobile]);
 
-  const handleRename = (id: string) => {
-    const chat = state.chats.find((c) => c.id === id);
-    if (!chat) return;
-    const nextTitle = window.prompt("Новое название чата", chat.title);
-    if (nextTitle === null) return;
-    dispatch({
-      type: "RENAME_CHAT",
-      payload: { id, title: nextTitle.trim() },
-    });
-  };
+  const handleRename = useCallback(
+    (id: string) => {
+      const chat = state.chats.find((c) => c.id === id);
+      if (!chat) return;
+      const nextTitle = window.prompt("Новое название чата", chat.title);
+      if (nextTitle === null) return;
+      dispatch({
+        type: "RENAME_CHAT",
+        payload: { id, title: nextTitle.trim() },
+      });
+    },
+    [state.chats, dispatch],
+  );
 
-  const handleDeleteRequest = (id: string) => {
+  const handleDeleteRequest = useCallback((id: string) => {
     setPendingDeleteId(id);
-  };
+  }, []);
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = useCallback(() => {
     if (!pendingDeleteId) return;
     const wasActive = state.activeChatId === pendingDeleteId;
     const remaining = state.chats.filter((c) => c.id !== pendingDeleteId);
@@ -81,7 +88,9 @@ export function Sidebar({ onCloseMobile, isMobileOpen }: SidebarProps) {
     if (wasActive) {
       navigate(remaining.length > 0 ? `/chat/${remaining[0].id}` : "/");
     }
-  };
+  }, [pendingDeleteId, state.activeChatId, state.chats, dispatch, navigate]);
+
+  const handleDeleteCancel = useCallback(() => setPendingDeleteId(null), []);
 
   const pendingChat =
     pendingDeleteId !== null
@@ -151,7 +160,7 @@ export function Sidebar({ onCloseMobile, isMobileOpen }: SidebarProps) {
         confirmLabel="Удалить"
         cancelLabel="Отмена"
         onConfirm={handleDeleteConfirm}
-        onCancel={() => setPendingDeleteId(null)}
+        onCancel={handleDeleteCancel}
       />
     </>
   );

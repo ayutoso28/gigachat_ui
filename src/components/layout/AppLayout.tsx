@@ -1,8 +1,25 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { AuthState, Settings } from "../../types";
-import { Sidebar } from "../sidebar/Sidebar";
 import { ChatWindow } from "../chat/ChatWindow";
 import styles from "./AppLayout.module.css";
+
+const Sidebar = lazy(() =>
+  import("../sidebar/Sidebar").then((m) => ({ default: m.Sidebar })),
+);
+
+function SidebarFallback() {
+  return (
+    <aside
+      aria-busy="true"
+      style={{
+        width: 272,
+        flexShrink: 0,
+        borderRight: "1px solid var(--color-border)",
+        background: "var(--color-bg-elevated)",
+      }}
+    />
+  );
+}
 
 interface AppLayoutProps {
   auth: AuthState;
@@ -36,10 +53,12 @@ export function AppLayout({ auth, settings, onOpenSettings }: AppLayoutProps) {
         />
       )}
 
-      <Sidebar
-        isMobileOpen={isMobile ? isSidebarOpen : undefined}
-        onCloseMobile={isMobile ? () => setIsSidebarOpen(false) : undefined}
-      />
+      <Suspense fallback={<SidebarFallback />}>
+        <Sidebar
+          isMobileOpen={isMobile ? isSidebarOpen : undefined}
+          onCloseMobile={isMobile ? () => setIsSidebarOpen(false) : undefined}
+        />
+      </Suspense>
 
       <ChatWindow
         auth={auth}

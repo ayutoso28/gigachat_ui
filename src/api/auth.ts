@@ -31,16 +31,34 @@ function uuid(): string {
   });
 }
 
+function sanitizeCredentials(raw: string): string {
+  const cleaned = raw.replace(/\s+/g, "");
+  for (let i = 0; i < cleaned.length; i++) {
+    if (cleaned.charCodeAt(i) > 0xff) {
+      throw new Error(
+        "Ключ авторизации содержит недопустимые символы. Скопируйте Base64-строку из личного кабинета без лишнего текста.",
+      );
+    }
+  }
+  if (!/^[A-Za-z0-9+/]+=*$/.test(cleaned)) {
+    throw new Error(
+      "Ключ авторизации должен быть валидной Base64-строкой из личного кабинета.",
+    );
+  }
+  return cleaned;
+}
+
 async function requestToken(
   credentials: string,
   scope: Scope,
 ): Promise<TokenInfo> {
+  const cleanCredentials = sanitizeCredentials(credentials);
   const body = new URLSearchParams({ scope });
 
   const response = await fetch(AUTH_URL, {
     method: "POST",
     headers: {
-      Authorization: `Basic ${credentials}`,
+      Authorization: `Basic ${cleanCredentials}`,
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json",
       RqUID: uuid(),

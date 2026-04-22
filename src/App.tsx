@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useState } from "react";
 import { BrowserRouter } from "react-router-dom";
 import { AuthForm } from "./components/auth/AuthForm";
-import { SettingsPanel } from "./components/settings/SettingsPanel";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { ChatProvider } from "./app/providers/ChatProvider";
 import { AppRoutes } from "./app/router/routes";
 import { DEFAULT_SETTINGS } from "./data/mockData";
-import type { AuthState, Settings } from "./types";
+import type { AuthState, Settings, Theme } from "./types";
+
+const SettingsPanel = lazy(() =>
+  import("./components/settings/SettingsPanel").then((m) => ({
+    default: m.SettingsPanel,
+  })),
+);
 
 export default function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
@@ -16,29 +22,41 @@ export default function App() {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
 
+  const handleOpenSettings = useCallback(() => setIsSettingsOpen(true), []);
+  const handleCloseSettings = useCallback(() => setIsSettingsOpen(false), []);
+  const handleResetSettings = useCallback(() => DEFAULT_SETTINGS, []);
+  const handleThemeChange = useCallback(
+    (theme: Theme) => setSettings((prev) => ({ ...prev, theme })),
+    [],
+  );
+
   if (!auth) {
     return <AuthForm onSubmit={setAuth} />;
   }
 
   return (
-    <ChatProvider>
-      <BrowserRouter>
-        <AppRoutes
-          auth={auth}
-          settings={settings}
-          onOpenSettings={() => setIsSettingsOpen(true)}
-        />
-      </BrowserRouter>
-      <SettingsPanel
-        isOpen={isSettingsOpen}
-        settings={settings}
-        onClose={() => setIsSettingsOpen(false)}
-        onSave={setSettings}
-        onReset={() => DEFAULT_SETTINGS}
-        onThemeChange={(theme) =>
-          setSettings((prev) => ({ ...prev, theme }))
-        }
-      />
-    </ChatProvider>
+    <ErrorBoundary>
+      <ChatProvider>
+        <BrowserRouter>
+          <AppRoutes
+            auth={auth}
+            settings={settings}
+            onOpenSettings={handleOpenSettings}
+          />
+        </BrowserRouter>
+        {isSettingsOpen && (
+          <Suspense fallback={null}>
+            <SettingsPanel
+              isOpen={isSettingsOpen}
+              settings={settings}
+              onClose={handleCloseSettings}
+              onSave={setSettings}
+              onReset={handleResetSettings}
+              onThemeChange={handleThemeChange}
+            />
+          </Suspense>
+        )}
+      </ChatProvider>
+    </ErrorBoundary>
   );
 }
