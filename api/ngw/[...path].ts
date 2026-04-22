@@ -44,7 +44,7 @@ export default async function handler(
     const rest = pathname.startsWith(PREFIX)
       ? pathname.slice(PREFIX.length)
       : pathname;
-    const targetUrl = `${UPSTREAM}${rest}${search}`;
+    const targetUrl = `${UPSTREAM}/api${rest}${search}`;
 
     const forwardHeaders: Record<string, string> = {};
     for (const [key, value] of Object.entries(req.headers)) {
